@@ -5,7 +5,7 @@ const isAuthenticated = require('../middleware/isAuthenticated');
 const filtersSettings = require('../middleware/filtersSettings');
 
 // Publish an offer
-router.post('/offer/publish', isAuthenticated, async (req, res) => {
+router.post('/offer/publish', async (req, res) => {
   try {
     const title = req.fields.title;
     const description = req.fields.description;
