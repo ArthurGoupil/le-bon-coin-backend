@@ -29,8 +29,7 @@ router.post('/user/sign_up', async (req, res) => {
         _id: user._id,
         token,
         account: {
-          username: user.account.username,
-          phone: user.account.phone
+          username: user.account.username
         }
       });
     } else if (existingUser && !userName) {

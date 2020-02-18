@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const cloudinary = require('cloudinary');
-const cloudinary = require('cloudinary');
 cloudinary.config({
   cloud_name: 'goupil',
   api_key: '654369122393577',
