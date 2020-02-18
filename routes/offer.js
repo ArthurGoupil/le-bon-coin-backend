@@ -1,5 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const cloudinary = require('cloudinary');
+const cloudinary = require('cloudinary');
+cloudinary.config({
+  cloud_name: 'goupil',
+  api_key: '654369122393577',
+  api_secret: 'kJffNbslYOF7UCnOo24giZYZSE8'
+});
 const Offer = require('../models/Offer');
 const isAuthenticated = require('../middleware/isAuthenticated');
 const filtersSettings = require('../middleware/filtersSettings');
@@ -7,30 +14,67 @@ const filtersSettings = require('../middleware/filtersSettings');
 // Publish an offer
 router.post('/offer/publish', isAuthenticated, async (req, res) => {
   try {
-    const title = req.fields.title;
-    const description = req.fields.description;
-    const price = req.fields.price;
+    const { title, description, price } = req.fields;
+    const files = Object.keys(req.files);
+
+    // Errors management
     const hasRequiredFields = title && price;
     const isGoodDescriptionLength = description.length <= 500;
     const isGoodTitleLength = title.length <= 50;
     const isGoodPriceLimit = price <= 100000;
     if (!hasRequiredFields) {
-      return res.status(400).json({ error: 'Field(s) missing.' });
+      return res.status(400).json({
+        error: `Veuillez renseigner tous les champs marqués d'un astérisque.`
+      });
     }
     if (!isGoodDescriptionLength) {
-      return res
-        .status(400)
-        .json({ error: 'Description length must be under 500 caracters.' });
+      return res.status(400).json({
+        error: 'La description doit contenir au maximum 500 caractères.'
+      });
     }
     if (!isGoodTitleLength) {
       return res
         .status(400)
-        .json({ error: 'Title length must be under 50 caracters.' });
+        .json({ error: 'Le titre doit contenur au maximum 50 caractères.' });
     }
     if (!isGoodPriceLimit) {
-      return res.status(400).json({ error: 'Price must be under 100000.' });
+      return res
+        .status(400)
+        .json({ error: 'Le prix doit se situer en dessous de 100000 €' });
     }
+
+    if (files.length) {
+      const filesResults = {};
+      files.forEach(fileKey => {
+        cloudinary.v2.uploader.upload(
+          req.files[fileKey].path,
+          {
+            folder: 'le-bon-coin'
+          },
+          (error, result) => {
+            if (error) {
+              filesResults[fileKey] = {
+                success: false,
+                error
+              };
+            } else {
+              filesResults[fileKey] = {
+                success: true,
+                result
+              };
+            }
+            if (Object.keys(filesResults).length === files.length) {
+              return res.status(200).json({ message: filesResults });
+            }
+          }
+        );
+      });
+    } else {
+      return res.send('No file uploaded.');
+    }
+
     const offer = new Offer({
+      pictures: filesResults,
       title,
       description,
       price,
@@ -40,6 +84,7 @@ router.post('/offer/publish', isAuthenticated, async (req, res) => {
     await offer.save();
     return res.status(200).json({
       _id: offer._id,
+      pictures: offer.pictures,
       title: offer.title,
       description: offer.description,
       price: offer.price,

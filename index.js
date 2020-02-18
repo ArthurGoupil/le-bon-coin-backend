@@ -5,7 +5,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-app.use(formidableMiddleware());
+app.use(formidableMiddleware({ multiples: true }));
 app.use(cors());
 
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost/le-bon-coin', {

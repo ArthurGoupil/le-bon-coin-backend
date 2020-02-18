@@ -20,6 +20,10 @@ const Offer = mongoose.model('Offer', {
   creator: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  pictures: {
+    type: Array,
+    default: []
   }
 });
 
