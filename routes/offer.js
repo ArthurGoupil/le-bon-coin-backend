@@ -10,17 +10,21 @@ const Offer = require('../models/Offer');
 const isAuthenticated = require('../middleware/isAuthenticated');
 const filtersSettings = require('../middleware/filtersSettings');
 
-// Publish an offer
+// PUBLISH AN OFFER
 router.post('/offer/publish', isAuthenticated, async (req, res) => {
-  try {
-    const { title, description, price } = req.fields;
-    const files = Object.keys(req.files);
+  const { title, description, price } = req.fields;
 
-    // Errors management
-    const hasRequiredFields = title && price;
-    const isGoodDescriptionLength = description.length <= 500;
-    const isGoodTitleLength = title.length <= 50;
-    const isGoodPriceLimit = price <= 100000;
+  // Errors management
+  const hasRequiredFields = title && price;
+  const isGoodDescriptionLength = description.length <= 500;
+  const isGoodTitleLength = title.length <= 50;
+  const isGoodPriceLimit = price <= 100000;
+
+  // Cloudinary variables
+  const filesResults = [];
+  const files = req.files.files;
+
+  try {
     if (!hasRequiredFields) {
       return res.status(400).json({
         error: `Veuillez renseigner tous les champs marqués d'un astérisque.`
@@ -34,7 +38,7 @@ router.post('/offer/publish', isAuthenticated, async (req, res) => {
     if (!isGoodTitleLength) {
       return res
         .status(400)
-        .json({ error: 'Le titre doit contenur au maximum 50 caractères.' });
+        .json({ error: 'Le titre doit contenir au maximum 50 caractères.' });
     }
     if (!isGoodPriceLimit) {
       return res
@@ -42,57 +46,85 @@ router.post('/offer/publish', isAuthenticated, async (req, res) => {
         .json({ error: 'Le prix doit se situer en dessous de 100000 €' });
     }
 
-    if (files.length) {
-      const filesResults = {};
-      files.forEach(fileKey => {
+    if (typeof files === 'object') {
+      if (files.length) {
+        files.forEach(file => {
+          cloudinary.v2.uploader.upload(
+            file.path,
+            {
+              folder: 'le-bon-coin'
+            },
+            async (error, result) => {
+              if (error) {
+                return res.status(400).json({ error });
+              } else {
+                filesResults.push(result.secure_url);
+              }
+              if (filesResults.length === files.length) {
+                const offer = new Offer({
+                  pictures: filesResults,
+                  title,
+                  description,
+                  price,
+                  created: new Date().toLocaleString(),
+                  creator: req.user
+                });
+                await offer.save();
+                return res.status(200).json({
+                  _id: offer._id,
+                  pictures: offer.pictures,
+                  title: offer.title,
+                  description: offer.description,
+                  price: offer.price,
+                  created: offer.created,
+                  creator: {
+                    account: offer.creator.account,
+                    _id: offer.creator._id
+                  }
+                });
+              }
+            }
+          );
+        });
+      } else {
         cloudinary.v2.uploader.upload(
-          req.files[fileKey].path,
+          files.path,
           {
             folder: 'le-bon-coin'
           },
-          (error, result) => {
+          async (error, result) => {
             if (error) {
-              filesResults[fileKey] = {
-                success: false,
-                error
-              };
+              return res.status(400).json({ error });
             } else {
-              filesResults[fileKey] = {
-                success: true,
-                result
-              };
+              filesResults.push(result.secure_url);
             }
-            if (Object.keys(filesResults).length === files.length) {
-              return res.status(200).json({ message: filesResults });
-            }
+            const offer = new Offer({
+              pictures: filesResults,
+              title,
+              description,
+              price,
+              created: new Date().toLocaleString(),
+              creator: req.user
+            });
+            await offer.save();
+            return res.status(200).json({
+              _id: offer._id,
+              pictures: offer.pictures,
+              title: offer.title,
+              description: offer.description,
+              price: offer.price,
+              created: offer.created,
+              creator: {
+                account: offer.creator.account,
+                _id: offer.creator._id
+              }
+            });
           }
         );
-      });
+      }
     } else {
       return res.send('No file uploaded.');
     }
-
-    const offer = new Offer({
-      pictures: filesResults,
-      title,
-      description,
-      price,
-      created: new Date().toLocaleString(),
-      creator: req.user
-    });
-    await offer.save();
-    return res.status(200).json({
-      _id: offer._id,
-      pictures: offer.pictures,
-      title: offer.title,
-      description: offer.description,
-      price: offer.price,
-      created: offer.created,
-      creator: {
-        account: offer.creator.account,
-        _id: offer.creator._id
-      }
-    });
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }
@@ -142,7 +174,7 @@ router.get('/offer/with-count', filtersSettings, async (req, res) => {
     }
     const count = (await Offer.find(filters)).length;
     if (req.query.page) {
-      paginationSearch(search, req, 3);
+      paginationSearch(search, req, 10);
     }
     const offers = await search;
     res.status(200).json({ count, offers });

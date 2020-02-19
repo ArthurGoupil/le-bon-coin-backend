@@ -23,6 +23,6 @@ app.all('*', (req, res) => {
   res.json({ message: 'all routes.' });
 });
 
-app.listen(process.env.PORT || 3000, () => {
+app.listen(process.env.PORT || 3200, () => {
   console.log('Server has started.');
 });
